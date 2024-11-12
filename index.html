@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Physics Simulation: Launch Ball</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: black;
+    }
+    #canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas size
+    canvas.width = 800; // Fixed canvas width
+    canvas.height = 800; // Fixed canvas height
+
+    // Adjusted square position (moved up and to the left)
+    const squareSize = 600; // Size of the square
+    const squareX = (canvas.width - squareSize) / 3; // Shifted more to the left
+    const squareY = (canvas.height - squareSize) / 3; // Shifted more up
+
+    // Object properties (ball)
+    const object = {
+      x: canvas.width / 2, // Start in the center horizontally
+      y: canvas.height / 2, // Start in the center vertically
+      radius: 20, // Ball size
+      color: "red",
+      velocityX: 0, // Horizontal velocity
+      velocityY: 0, // Vertical velocity
+      gravity: 0.5, // Gravity force
+      damping: 0.9, // Energy loss when bouncing
+      dragging: false, // Track if the ball is being dragged
+      moveSpeed: 5, // Speed for arrow key movement
+      lastPositionX: canvas.width / 2,
+      lastPositionY: canvas.height / 2,
+      totalDistance: 0, // Total distance traveled in the last minute
+      startTime: Date.now(), // Start time for calculating the average speed
+      averageSpeed: 0, // Speed over the last minute
+    };
+
+    let offsetX, offsetY;
+
+    // Draw the square walls and the ground line
+    function drawWalls() {
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+
+      // Draw the square boundary (walls)
+      ctx.beginPath();
+      ctx.moveTo(squareX, squareY); // Top-left
+      ctx.lineTo(squareX + squareSize, squareY); // Top-right
+      ctx.lineTo(squareX + squareSize, squareY + squareSize); // Bottom-right
+      ctx.lineTo(squareX, squareY + squareSize); // Bottom-left
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Calculate the distance between the ball and the center
+    function calculateDistance() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      return Math.sqrt(Math.pow(object.x - centerX, 2) + Math.pow(object.y - centerY, 2));
+    }
+
+    // Update the ball's position with physics
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas each frame
+
+      // Draw the square walls
+      drawWalls();
+
+      // Apply gravity when the ball is not being dragged
+      if (!object.dragging) {
+        object.velocityY += object.gravity; // Increase the downward velocity due to gravity
+        object.y += object.velocityY; // Update the ball's vertical position
+        object.x += object.velocityX; // Update the ball's horizontal position
+
+        // Collision with the ground (bottom of the square)
+        if (object.y + object.radius > squareY + squareSize) {
+          object.y = squareY + squareSize - object.radius; // Keep the ball on the ground
+          object.velocityY *= -object.damping; // Reverse and dampen the velocity (bounce)
+        }
+
+        // Collision with the left and right walls (square edges)
+        if (object.x - object.radius < squareX) { // Left wall
+          object.x = squareX + object.radius;
+          object.velocityX *= -object.damping; // Reverse the velocity (bounce)
+        }
+        if (object.x + object.radius > squareX + squareSize) { // Right wall
+          object.x = squareX + squareSize - object.radius;
+          object.velocityX *= -object.damping; // Reverse the velocity (bounce)
+        }
+
+        // Collision with the top wall (square edge)
+        if (object.y - object.radius < squareY) { // Top wall
+          object.y = squareY + object.radius;
+          object.velocityY *= -object.damping; // Reverse the velocity (bounce)
+        }
+      }
+
+      // Draw the ball (3D look)
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 5;
+      ctx.shadowOffsetY = 5;
+
+      ctx.beginPath();
+      ctx.arc(object.x, object.y, object.radius, 0, Math.PI * 2);
+      ctx.fillStyle = object.color;
+      ctx.fill();
+      ctx.closePath();
+
+      // Reset shadow settings for other objects
+      ctx.shadowColor = "transparent";
+
+      // Calculate the distance from the center
+      const distance = calculateDistance();
+
+      // Draw the distance line
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, canvas.height / 2); // Center of the square
+      ctx.lineTo(object.x, object.y); // Line to the ball
+      ctx.strokeStyle = "yellow";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Make the yellow text bigger
+      ctx.fillStyle = "yellow";
+      ctx.font = "30px Arial"; // Increased font size to 30px
+      ctx.fillText("Distance: " + Math.round(distance), object.x + 10, object.y); // Distance text
+
+      // Calculate the average speed for the last minute
+      const elapsedTime = (Date.now() - object.startTime) / 1000; // Time in seconds
+      if (elapsedTime >= 60) {
+        object.averageSpeed = object.totalDistance / 60; // Average speed per minute
+        object.totalDistance = 0; // Reset the total distance
+        object.startTime = Date.now(); // Reset the start time
+      } else {
+        // Calculate total distance traveled in the last minute
+        const currentDistance = Math.sqrt(
+          Math.pow(object.x - object.lastPositionX, 2) + Math.pow(object.y - object.lastPositionY, 2)
+        );
+        object.totalDistance += currentDistance;
+      }
+
+      // Draw the average speed line
+      ctx.beginPath();
+      ctx.moveTo(100, canvas.height - 50);
+      ctx.lineTo(canvas.width - 100, canvas.height - 50);
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "white";
+      ctx.fillText("Avg Speed (m/s): " + object.averageSpeed.toFixed(2), 100, canvas.height - 70);
+
+      // Update last position for speed calculation
+      object.lastPositionX = object.x;
+      object.lastPositionY = object.y;
+
+      requestAnimationFrame(update); // Keep updating the animation
+    }
+
+    // Mouse event listeners for dragging
+    canvas.addEventListener("mousedown", (e) => {
+      const distance = Math.sqrt((e.clientX - object.x) ** 2 + (e.clientY - object.y) ** 2);
+      if (distance < object.radius) {
+        object.dragging = true;
+        offsetX = e.clientX - object.x;
+        offsetY = e.clientY - object.y;
+        object.velocityX = 0; // Stop the motion while dragging
+        object.velocityY = 0;
+      } else {
+        // Launch the ball based on mouse position
+        const angle = Math.atan2(e.clientY - object.y, e.clientX - object.x); // Get angle of the click
+        const distance = Math.sqrt(Math.pow(e.clientX - object.x, 2) + Math.pow(e.clientY - object.y, 2)); // Distance
+        const power = distance / 10; // Normalize the power
+
+        // Set the velocity based on the power and angle
+        object.velocityX = Math.cos(angle) * power;
+        object.velocityY = Math.sin(angle) * power;
+      }
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (object.dragging) {
+        object.x = e.clientX - offsetX;
+        object.y = e.clientY - offsetY;
+
+        // Keep the ball inside the square
+        if (object.x - object.radius < squareX) object.x = squareX + object.radius;
+        if (object.x + object.radius > squareX + squareSize) object.x = squareX + squareSize - object.radius;
+        if (object.y - object.radius < squareY) object.y = squareY + object.radius;
+        if (object.y + object.radius > squareY + squareSize) object.y = squareY + squareSize - object.radius;
+      }
+    });
+
+    canvas.addEventListener("mouseup", () => {
+      object.dragging = false;
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      object.dragging = false;
+    });
+
+    update(); // Start the simulation
+  </script>
+</body>
+</html>
